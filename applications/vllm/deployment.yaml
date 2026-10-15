@@ -1,0 +1,99 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  namespace: llm-serving
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: vllm
+  template:
+    metadata:
+      labels:
+        app: vllm
+    spec:
+      enableServiceLinks: false
+      runtimeClassName: nvidia
+
+      nodeSelector:
+        kubernetes.io/hostname: k3d-fde-gpu-v2-agent-0
+
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.10.2
+          imagePullPolicy: IfNotPresent
+
+          args:
+            - "--model"
+            - "Qwen/Qwen2.5-0.5B-Instruct"
+            - "--served-model-name"
+            - "qwen-small"
+            - "--dtype"
+            - "half"
+            - "--max-model-len"
+            - "1024"
+            - "--gpu-memory-utilization"
+            - "0.60"
+            - "--max-num-seqs"
+            - "2"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8000"
+
+          env:
+            - name: HF_HOME
+              value: /models/huggingface
+            - name: NVIDIA_DRIVER_CAPABILITIES
+              value: compute,utility
+
+          ports:
+            - name: http
+              containerPort: 8000
+
+          resources:
+            requests:
+              cpu: "1"
+              memory: 3Gi
+              nvidia.com/gpu: 1
+            limits:
+              cpu: "4"
+              memory: 8Gi
+              nvidia.com/gpu: 1
+
+          volumeMounts:
+            - name: model-cache
+              mountPath: /models
+
+            # WSL2/k3d-specific DXCore workaround
+            - name: dxcore
+              mountPath: /usr/lib/x86_64-linux-gnu/libdxcore.so
+              readOnly: true
+
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 90
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: vllm-model-cache
+
+        - name: dxcore
+          hostPath:
+            path: /usr/lib64/libdxcore.so
+            type: File
