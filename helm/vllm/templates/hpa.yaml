@@ -1,0 +1,49 @@
+{{/*
+Purpose: Scales the inference Deployment from configured CPU/memory targets.
+Validates replica bounds and metric targets before rendering; GPU scheduling
+and cluster metrics availability still determine whether scaling can succeed.
+*/}}
+{{- if and .Values.deployToCluster .Values.autoscaling.enabled }}
+{{- $scaling := .Values.autoscaling }}
+{{- $minimum := dig "minReplicas" 1 $scaling }}
+{{- $maximum := required "autoscaling.maxReplicas is required" $scaling.maxReplicas }}
+{{- if or (not (regexMatch "^[1-9][0-9]*$" (toString $minimum))) (not (regexMatch "^[1-9][0-9]*$" (toString $maximum))) }}
+{{- fail "autoscaling replica bounds must be positive integers" }}
+{{- end }}
+{{- $minimum = int $minimum }}
+{{- $maximum = int $maximum }}
+{{- if or (lt $minimum 1) (lt $maximum $minimum) }}
+{{- fail "autoscaling requires 1 <= minReplicas <= maxReplicas" }}
+{{- end }}
+{{- $metrics := list }}
+{{- range $metric := list
+    (dict "resource" "cpu" "setting" "targetCPUUtilizationPercentage")
+    (dict "resource" "memory" "setting" "targetMemoryUtilizationPercentage") }}
+{{- $target := index $scaling $metric.setting }}
+{{- if hasKey $scaling $metric.setting }}
+{{- if not (regexMatch "^[1-9][0-9]*$" (toString $target)) }}
+{{- fail (printf "autoscaling.%s must be a positive integer utilization percentage" $metric.setting) }}
+{{- end }}
+{{- $resource := dict "name" $metric.resource "target" (dict "type" "Utilization" "averageUtilization" (int $target)) }}
+{{- $metrics = append $metrics (dict "type" "Resource" "resource" $resource) }}
+{{- end }}
+{{- end }}
+{{- if not $metrics }}
+{{- fail "autoscaling requires a targetCPUUtilizationPercentage or targetMemoryUtilizationPercentage" }}
+{{- end }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "vllm.fullname" . }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "vllm.fullname" . }}
+  minReplicas: {{ $minimum }}
+  maxReplicas: {{ $maximum }}
+  metrics:
+    {{- toYaml $metrics | nindent 4 }}
+{{- end }}

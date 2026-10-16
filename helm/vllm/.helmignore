@@ -1,0 +1,2 @@
+# Purpose: Keep local regression tests and their Python artifacts out of chart packages.
+tests/

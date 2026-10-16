@@ -1,0 +1,29 @@
+{{/*
+Purpose: Creates model-cache PersistentVolumeClaims only when pvc.enabled and
+pvc.create are both true. With pvc.create=false, the Deployment mounts
+existing claims and this template creates no storage resources.
+*/}}
+{{- if and .Values.pvc.enabled .Values.pvc.create }}
+{{- range $pvc := .Values.pvc.volumes }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $pvc.claimName | quote }}
+  labels:
+    {{- include "vllm.labels" $ | nindent 4 }}
+spec:
+  accessModes:
+    - {{ $pvc.accessMode | default "ReadWriteOnce" | quote }}
+  resources:
+    requests:
+      storage: {{ required "PVC capacity is required when pvc.create=true" $pvc.capacity | quote }}
+  {{- if hasKey $pvc "storageClassName" }}
+  storageClassName: {{ $pvc.storageClassName | quote }}
+  {{- end }}
+  {{- with $pvc.existedVolumeName }}
+  volumeName: {{ . | quote }}
+  {{- end }}
+  volumeMode: {{ $pvc.volumeMode | default "Filesystem" | quote }}
+{{- end }}
+{{- end }}

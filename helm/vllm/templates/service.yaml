@@ -1,0 +1,29 @@
+{{/*
+Purpose: Provides a stable network endpoint for the vLLM pods.
+Maps configured service ports to container ports and selects pods using
+the shared workload selector; service.type controls network exposure.
+*/}}
+{{- $service := .Values.service -}}
+{{- $primaryPort := dict "ServicePort" $service.ServicePort "containerTargetPort" $service.containerTargetPort "protocol" $service.protocol "portName" ($service.portName | default "http") -}}
+{{- $ports := list $primaryPort -}}
+{{- $additional := .Values.additionalServicePorts | default dict -}}
+{{- if $additional.enabled -}}
+  {{- $ports = concat $ports ($additional.additionalPorts | default list) -}}
+{{- end }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "vllm.fullname" . }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+spec:
+  type: {{ $service.type }}
+  ports:
+    {{- range $ports }}
+    - port: {{ .ServicePort }}
+      targetPort: {{ .containerTargetPort }}
+      protocol: {{ .protocol }}
+      name: {{ .portName }}
+    {{- end }}
+  selector:
+    {{- include "vllm.selectorLabels" . | nindent 4 }}

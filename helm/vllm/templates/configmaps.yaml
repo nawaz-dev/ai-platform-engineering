@@ -1,0 +1,24 @@
+{{/*
+Purpose: Optionally creates ConfigMaps from configMaps.configMapsObjects.
+Stores non-sensitive text or binary configuration that pods can consume
+through configured environment references or configuration volumes.
+*/}}
+{{- if .Values.configMaps.enabled -}}
+{{- range $configMap :=  .Values.configMaps.configMapsObjects }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $configMap.configMapName }}
+  labels:
+    {{- include "vllm.labels" $ | nindent 4 }}
+{{- with $configMap.data }}
+data:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- with $configMap.binaryData }}
+binaryData: 
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+{{- end }}

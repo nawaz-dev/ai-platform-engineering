@@ -1,0 +1,79 @@
+{{/*
+Purpose: Coordinates the vLLM Deployment, GPU scheduling, pod identity, and
+optional companion containers. _container.tpl renders the inference process;
+_storage.tpl keeps its model-cache and configuration mounts aligned with volumes.
+*/}}
+{{- if .Values.deployToCluster }}
+{{- $storage := include "vllm.storage" . | fromYaml }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "vllm.fullname" . }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+  {{- with .Values.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy:
+    {{- toYaml .Values.strategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "vllm.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "vllm.labels" . | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      # Preserve false: injected VLLM_PORT service URLs conflict with vLLM parsing.
+      enableServiceLinks: {{ .Values.enableServiceLinks }}
+      serviceAccountName: {{ include "vllm.serviceAccountName" . }}
+      {{- with .Values.runtimeClassName }}
+      runtimeClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - {{- include "vllm.inferenceContainer" (dict "root" . "storage" $storage) | nindent 10 }}
+        {{- if .Values.customContainers.enabled }}
+        {{- with .Values.customContainers.containers }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- end }}
+      {{- if .Values.initContainers.enabled }}
+      {{- with .Values.initContainers.initContainers }}
+      initContainers:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- end }}
+      {{- with $storage.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

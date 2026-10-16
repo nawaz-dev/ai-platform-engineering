@@ -1,0 +1,81 @@
+{{/*
+Purpose: Optionally exposes the inference Service through HTTP/HTTPS ingress rules.
+Uses configured hosts, paths, ingress class, and TLS secrets; an ingress
+controller must be installed separately to serve these rules.
+*/}}
+{{- $ingress := .Values.ingress | default dict -}}
+{{- if $ingress.enabled -}}
+{{- $serviceName := include "vllm.fullname" . -}}
+{{- $servicePort := .Values.service.ServicePort -}}
+{{- $usesStableAPI := semverCompare ">=1.19-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- $supportsClassName := semverCompare ">=1.18-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- $annotations := deepCopy ($ingress.annotations | default dict) -}}
+{{/* Older controllers select their ingress class through an annotation. */}}
+{{- if and $ingress.className (not $supportsClassName) (not (hasKey $annotations "kubernetes.io/ingress.class")) -}}
+  {{- $_ := set $annotations "kubernetes.io/ingress.class" $ingress.className -}}
+{{- end }}
+{{- if $usesStableAPI -}}
+apiVersion: networking.k8s.io/v1
+{{- else if semverCompare ">=1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+apiVersion: networking.k8s.io/v1beta1
+{{- else -}}
+apiVersion: extensions/v1beta1
+{{- end }}
+kind: Ingress
+metadata:
+  name: {{ $serviceName }}
+  labels:
+    {{- include "vllm.labels" . | nindent 4 }}
+  {{- with $annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if and $ingress.className $supportsClassName }}
+  ingressClassName: {{ $ingress.className }}
+  {{- end }}
+  {{- with $ingress.tls }}
+  tls:
+    {{- range . }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range $ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          {{- $backend := .backend | default dict }}
+          {{- $service := $backend.service | default dict }}
+          {{- $port := $service.port | default dict }}
+          {{- $name := $service.name | default $serviceName }}
+          - path: {{ .path }}
+            {{- if $supportsClassName }}
+            pathType: {{ .pathType | default "Prefix" }}
+            {{- end }}
+            backend:
+              {{- if $usesStableAPI }}
+              service:
+                name: {{ $name }}
+                port:
+                  {{- if $port.name }}
+                  name: {{ $port.name | quote }}
+                  {{- else }}
+                  number: {{ $port.number | default $servicePort }}
+                  {{- end }}
+              {{- else }}
+              serviceName: {{ $name }}
+              {{- if $port.name }}
+              servicePort: {{ $port.name | quote }}
+              {{- else }}
+              servicePort: {{ $port.number | default $servicePort }}
+              {{- end }}
+              {{- end }}
+          {{- end }}
+    {{- end }}
+{{- end }}
