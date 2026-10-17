@@ -1,0 +1,42 @@
+{{/*
+Purpose: Displays vLLM connection and troubleshooting commands after Helm installation
+or upgrade. Includes rollout and log commands, local port forwarding, health
+and model-list endpoints, ingress URLs, and existing model-cache claim names.
+*/}}
+{{- $name := include "vllm.fullname" . -}}
+vLLM inference service: {{ $name }}
+Namespace: {{ .Release.Namespace }}
+
+{{ if .Values.deployToCluster -}}
+Wait for the model server (the first model download can take several minutes):
+  kubectl --namespace {{ .Release.Namespace }} rollout status deployment/{{ $name }}
+
+Inspect model loading and GPU initialization:
+  kubectl --namespace {{ .Release.Namespace }} logs deployment/{{ $name }} -c {{ $name }} --follow
+{{ else -}}
+Deployment creation is disabled by deployToCluster=false.
+{{ end }}
+Connect to the inference API from your machine:
+  kubectl --namespace {{ .Release.Namespace }} port-forward service/{{ $name }} 8000:{{ .Values.service.ServicePort }}
+
+Check readiness and discover the served model IDs:
+  curl http://127.0.0.1:8000/health
+  curl http://127.0.0.1:8000/v1/models
+
+Use http://127.0.0.1:8000/v1 as the OpenAI-compatible API base URL.
+If API-key authentication is configured, include an Authorization: Bearer header.
+{{ if .Values.ingress.enabled }}
+Configured ingress endpoints:
+{{- range .Values.ingress.hosts }}
+{{- $host := .host }}
+{{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host }}{{ .path }}
+{{- end }}
+{{- end }}
+{{ end }}
+{{- if and .Values.pvc.enabled (not .Values.pvc.create) }}
+Model cache claims must already exist in {{ .Release.Namespace }}:
+{{- range .Values.pvc.volumes }}
+  {{ .claimName }}
+{{- end }}
+{{ end }}
