@@ -1,0 +1,16 @@
+kind: Route
+apiVersion: route.openshift.io/v1
+metadata:  
+  name: vllm-github-webhook
+  namespace: ai-platform-ci  
+spec:
+  host: vllm-github-webhook-ai-platform-ci.apps-crc.testing
+  to:
+    kind: Service
+    name: el-vllm-github-listener
+    weight: 100
+  port:
+    targetPort: http-listener
+  tls:
+    termination: edge
+  wildcardPolicy: None

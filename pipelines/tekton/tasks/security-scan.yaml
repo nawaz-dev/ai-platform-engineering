@@ -1,0 +1,22 @@
+# Tekton task for scanning source, dependencies, and built artifacts.
+
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: fde-security-scan
+spec:
+  workspaces:
+    - name: source
+  steps:
+    - name: trivy
+      image: aquasec/trivy:0.58.2
+      command:
+        - trivy
+      args:
+        - config
+        - --severity
+        - HIGH,CRITICAL
+        - --exit-code
+        - "0"
+        - --no-progress
+        - $(workspaces.source.path)/repo/helm/vllm

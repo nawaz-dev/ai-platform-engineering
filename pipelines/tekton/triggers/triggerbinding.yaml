@@ -1,0 +1,11 @@
+# Trigger binding for mapping webhook data into pipeline parameters.
+
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: vllm-github-binding
+  namespace: ai-platform-ci
+spec:
+  params:
+    - name: git-revision
+      value: $(body.after)

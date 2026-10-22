@@ -1,0 +1,52 @@
+# Tekton pipeline for validating the vLLM application and chart.
+
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: vllm-ci-pipeline
+spec:
+  params:
+    - name: repo-url
+      type: string
+      default: https://github.com/nawaz-dev/ai-platform-engineering.git
+    - name: revision
+      type: string
+      default: main
+
+  workspaces:
+    - name: source
+
+  tasks:
+    - name: clone
+      taskRef:
+        name: fde-git-clone
+      params:
+        - name: repo-url
+          value: $(params.repo-url)
+        - name: revision
+          value: $(params.revision)
+      workspaces:
+        - name: source
+          workspace: source
+
+    - name: helm-validation
+      runAfter:
+        - clone
+      taskRef:
+        name: fde-helm-validate
+      workspaces:
+        - name: source
+          workspace: source
+
+    - name: security-scan
+      runAfter:
+        - helm-validation
+      taskRef:
+        name: fde-security-scan
+      workspaces:
+        - name: source
+          workspace: source
+
+  results:
+    - name: validated-commit
+      value: $(tasks.clone.results.commit)

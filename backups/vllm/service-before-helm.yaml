@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"vllm","namespace":"llm-serving"},"spec":{"ports":[{"name":"http","port":8000,"targetPort":8000}],"selector":{"app":"vllm"},"type":"ClusterIP"}}
+  creationTimestamp: "2026-10-15T10:16:00Z"
+  name: vllm
+  namespace: llm-serving
+  resourceVersion: "5953"
+  uid: 7225053d-adbd-4a83-b605-6f61a4c8411f
+spec:
+  clusterIP: 10.43.35.210
+  clusterIPs:
+  - 10.43.35.210
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    port: 8000
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app: vllm
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

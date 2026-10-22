@@ -1,0 +1,47 @@
+# Tekton task for linting and validating Helm charts.
+
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: fde-helm-validate
+spec:
+  workspaces:
+    - name: source
+  steps:
+    - name: helm-lint
+      image: alpine/helm:3.17.3
+      script: |
+        #!/bin/sh
+        set -eu
+
+        cd "$(workspaces.source.path)/repo"
+
+        helm lint helm/vllm
+
+        echo "Helm lint passed"
+
+    - name: helm-template
+      image: alpine/helm:3.17.3
+      script: |
+        #!/bin/sh
+        set -eu
+
+        cd "$(workspaces.source.path)/repo"
+
+        helm template vllm helm/vllm \
+          --namespace llm-serving \
+          > /tmp/vllm-rendered.yaml
+
+        grep -q '^kind: Deployment$' \
+          /tmp/vllm-rendered.yaml
+
+        grep -q '^kind: Service$' \
+          /tmp/vllm-rendered.yaml
+
+        if grep -q '^kind: PersistentVolumeClaim$' \
+          /tmp/vllm-rendered.yaml; then
+          echo "Unexpected PVC creation"
+          exit 1
+        fi
+
+        echo "Helm rendering passed"

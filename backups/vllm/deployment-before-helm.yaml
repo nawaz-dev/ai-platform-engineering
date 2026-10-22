@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{},"name":"vllm","namespace":"llm-serving"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"vllm"}},"strategy":{"type":"Recreate"},"template":{"metadata":{"labels":{"app":"vllm"}},"spec":{"containers":[{"args":["--model","Qwen/Qwen2.5-0.5B-Instruct","--served-model-name","qwen-small","--dtype","half","--max-model-len","1024","--gpu-memory-utilization","0.60","--max-num-seqs","2","--host","0.0.0.0","--port","8000"],"env":[{"name":"HF_HOME","value":"/models/huggingface"},{"name":"NVIDIA_DRIVER_CAPABILITIES","value":"compute,utility"}],"image":"vllm/vllm-openai:v0.10.2","imagePullPolicy":"IfNotPresent","name":"vllm","ports":[{"containerPort":8000,"name":"http"}],"readinessProbe":{"failureThreshold":3,"httpGet":{"path":"/health","port":"http"},"periodSeconds":10},"resources":{"limits":{"cpu":"4","memory":"8Gi","nvidia.com/gpu":1},"requests":{"cpu":"1","memory":"3Gi","nvidia.com/gpu":1}},"startupProbe":{"failureThreshold":90,"httpGet":{"path":"/health","port":"http"},"periodSeconds":10},"volumeMounts":[{"mountPath":"/models","name":"model-cache"},{"mountPath":"/usr/lib/x86_64-linux-gnu/libdxcore.so","name":"dxcore","readOnly":true}]}],"enableServiceLinks":false,"nodeSelector":{"kubernetes.io/hostname":"k3d-fde-gpu-v2-agent-0"},"runtimeClassName":"nvidia","volumes":[{"name":"model-cache","persistentVolumeClaim":{"claimName":"vllm-model-cache"}},{"hostPath":{"path":"/usr/lib64/libdxcore.so","type":"File"},"name":"dxcore"}]}}}}
+  creationTimestamp: "2026-10-15T10:16:00Z"
+  generation: 3
+  name: vllm
+  namespace: llm-serving
+  resourceVersion: "8631"
+  uid: e329e6d5-6a14-4559-a7e3-7156a7b033d5
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: vllm
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/restartedAt: "2026-10-15T12:08:22Z"
+      creationTimestamp: null
+      labels:
+        app: vllm
+    spec:
+      containers:
+      - args:
+        - --model
+        - Qwen/Qwen2.5-0.5B-Instruct
+        - --served-model-name
+        - qwen-small
+        - --dtype
+        - half
+        - --max-model-len
+        - "1024"
+        - --gpu-memory-utilization
+        - "0.60"
+        - --max-num-seqs
+        - "2"
+        - --host
+        - 0.0.0.0
+        - --port
+        - "8000"
+        env:
+        - name: HF_HOME
+          value: /models/huggingface
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: compute,utility
+        image: vllm/vllm-openai:v0.10.2
+        imagePullPolicy: IfNotPresent
+        name: vllm
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources:
+          limits:
+            cpu: "4"
+            memory: 8Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: "1"
+            memory: 3Gi
+            nvidia.com/gpu: "1"
+        startupProbe:
+          failureThreshold: 90
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /models
+          name: model-cache
+        - mountPath: /usr/lib/x86_64-linux-gnu/libdxcore.so
+          name: dxcore
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      enableServiceLinks: false
+      nodeSelector:
+        kubernetes.io/hostname: k3d-fde-gpu-v2-agent-0
+      restartPolicy: Always
+      runtimeClassName: nvidia
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: model-cache
+        persistentVolumeClaim:
+          claimName: vllm-model-cache
+      - hostPath:
+          path: /usr/lib64/libdxcore.so
+          type: File
+        name: dxcore
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2026-10-15T12:18:42Z"
+    lastUpdateTime: "2026-10-15T12:18:42Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2026-10-15T12:08:22Z"
+    lastUpdateTime: "2026-10-15T12:18:42Z"
+    message: ReplicaSet "vllm-57ccd7bcc4" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 3
+  readyReplicas: 1
+  replicas: 1
+  updatedReplicas: 1

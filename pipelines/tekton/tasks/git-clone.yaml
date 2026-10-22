@@ -1,0 +1,38 @@
+# Tekton task for cloning the source repository.
+
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: fde-git-clone
+spec:
+  params:
+    - name: repo-url
+      type: string
+    - name: revision
+      type: string
+      default: main
+  workspaces:
+    - name: source
+  results:
+    - name: commit
+      description: Resolved Git commit SHA
+  steps:
+    - name: clone
+      image: alpine/git:2.47.2
+      env:
+        - name: HOME
+          value: /tmp
+      script: |
+        #!/bin/sh
+        set -eu
+
+        cd "$(workspaces.source.path)"
+        git clone "$(params.repo-url)" repo
+        cd repo
+        git checkout "$(params.revision)"
+
+        git rev-parse HEAD | tr -d '\n' \
+          > "$(results.commit.path)"
+
+        echo "Repository cloned successfully"
+        git rev-parse HEAD

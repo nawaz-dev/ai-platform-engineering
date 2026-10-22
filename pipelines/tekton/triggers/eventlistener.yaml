@@ -1,0 +1,38 @@
+# Event listener that receives repository webhook events.
+
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: vllm-github-listener
+  namespace: ai-platform-ci
+spec:
+  serviceAccountName: fde-eventlistener-sa
+
+  triggers:
+    - name: github-push
+      interceptors:
+        - ref:
+            name: github
+          params:
+            - name: secretRef
+              value:
+                secretName: github-webhook-secret
+                secretKey: secretToken
+            - name: eventTypes
+              value:
+                - push
+
+        - ref:
+            name: cel
+          params:
+            - name: filter
+              value: >-
+                body.ref == 'refs/heads/main' &&
+                body.repository.full_name == 'nawaz-dev/ai-platform-engineering' &&
+                body.deleted == false
+
+      bindings:
+        - ref: vllm-github-binding
+
+      template:
+        ref: vllm-github-template
