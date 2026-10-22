@@ -17,6 +17,7 @@ rules:
   - apiGroups: ["triggers.tekton.dev"]
     resources:
       - eventlisteners
+      - triggers
       - triggerbindings
       - triggertemplates
     verbs: ["get", "list", "watch"]
