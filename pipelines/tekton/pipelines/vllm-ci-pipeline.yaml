@@ -52,6 +52,9 @@ spec:
         - security-scan
       taskRef:
         name: fde-gitops-promote
+      params:
+      - name: commit-sha
+        value: $(tasks.clone.results.commit)
       workspaces:
         - name: source
           workspace: source
