@@ -47,6 +47,15 @@ spec:
         - name: source
           workspace: source
 
+    - name: gitops-promote
+      runAfter:
+        - security-scan
+      taskRef:
+        name: fde-gitops-promote
+      workspaces:
+        - name: source
+          workspace: source
+
   results:
     - name: validated-commit
       value: $(tasks.clone.results.commit)
