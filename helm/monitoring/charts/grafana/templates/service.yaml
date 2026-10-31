@@ -1,0 +1,21 @@
+# Grafana Service manifest goes here.
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-grafana
+  labels:
+    app: grafana
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: grafana
+    release: {{ .Release.Name }}
+
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP

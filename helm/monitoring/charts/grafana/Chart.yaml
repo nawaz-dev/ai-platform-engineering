@@ -1,0 +1,7 @@
+apiVersion: v2
+name: grafana
+description: Grafana visualization for vLLM metrics
+type: application
+version: 0.1.0
+appVersion: "12.2.0"
+

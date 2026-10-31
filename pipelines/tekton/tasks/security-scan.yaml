@@ -17,6 +17,6 @@ spec:
         - --severity
         - HIGH,CRITICAL
         - --exit-code
-        - "0"
+        - "1"
         - --no-progress
         - $(workspaces.source.path)/repo/helm/vllm
