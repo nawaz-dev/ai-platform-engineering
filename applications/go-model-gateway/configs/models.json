@@ -1,0 +1,25 @@
+
+{
+  "models": [
+    {
+      "model_id": "qwen-small",
+      "provider": "vllm",
+      "base_url": "http://localhost:8000",
+      "provider_model_id": "qwen-small",
+      "api_key_env": "VLLM_API_KEY"
+    },
+    {
+      "model_id": "mistral-local",
+      "provider": "ollama",
+      "base_url": "http://host.docker.internal:11434",
+      "provider_model_id": "mistral"
+    },
+    {
+      "model_id": "nim-nemotron",
+      "provider": "nvidia-nim",
+      "base_url": "http://nim-server:8000",
+      "provider_model_id": "replace-with-real-nim-model-id",
+      "api_key_env": "NIM_API_KEY"
+    }
+  ]
+}

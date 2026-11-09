@@ -7,7 +7,7 @@ MODEL="${MODEL:-qwen-small}"
 
 mkdir -p /tmp/vllm-benchmark
 
-for USERS in 1 5 10 20; do
+for USERS in 10 20 40 80; do
   echo "================================"
   echo "Testing $USERS concurrent users"
   echo "================================"
