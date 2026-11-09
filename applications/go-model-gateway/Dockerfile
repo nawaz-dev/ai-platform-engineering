@@ -8,5 +8,5 @@ FROM alpine:3.21
 RUN addgroup -S gateway && adduser -S gateway -G gateway
 COPY --from=build /gateway /gateway
 USER gateway
-EXPOSE 3000
+EXPOSE 5000
 ENTRYPOINT ["/gateway"]
