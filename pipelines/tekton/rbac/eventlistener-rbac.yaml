@@ -62,3 +62,13 @@ roleRef:
   kind: ClusterRole
   name: fde-eventlistener-interceptors
   apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: buildah-sa
+  namespace: ai-platform-ci
+automountServiceAccountToken: false
+

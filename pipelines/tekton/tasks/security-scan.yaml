@@ -12,6 +12,13 @@ spec:
   steps:
   - name: trivy
     image: aquasec/trivy:0.58.2
+    env:
+      - name: HOME
+        value: /tmp
+      - name: TRIVY_CACHE_DIR
+        value: /tmp/trivy-cache
+      - name: XDG_CACHE_HOME
+        value: /tmp/.cache
     command:
     - trivy
     args:

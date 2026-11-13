@@ -9,12 +9,15 @@ spec:
   params:
     - name: application
       type: string
+      default: model-gateway
 
     - name: commit-sha
       type: string
+      default: ""
 
     - name: gitops-file
       type: string
+      default: environments/dev/$(params.application)/values.yaml
 
     - name: image-repository
       type: string

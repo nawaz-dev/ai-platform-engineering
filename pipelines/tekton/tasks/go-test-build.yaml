@@ -13,6 +13,17 @@ spec:
   - name: test-build
     image: $(params.go-image)
     workingDir: $(workspaces.source.path)/repo/$(params.app-path)
+    env:
+      - name: HOME
+        value: /tmp
+      - name: GOCACHE
+        value: /tmp/go-build
+      - name: GOPATH
+        value: /tmp/go
+      - name: GOMODCACHE
+        value: /tmp/go/pkg/mod
+      - name: XDG_CACHE_HOME
+        value: /tmp/.cache
     script: |
       #!/bin/sh
       set -eu

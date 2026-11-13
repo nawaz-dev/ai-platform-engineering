@@ -46,11 +46,13 @@ spec:
     taskRef:
       name: fde-security-scan
     runAfter:
-    - clone
+    - go-test-build
     params:
     - name: scan-path
       value: applications/model-gateway
-    workspaces: *id001
+    workspaces:
+    - name: source
+      workspace: source
   - name: image-build-push
     runAfter:
       - go-test-build
@@ -59,7 +61,7 @@ spec:
       name: fde-image-build-push
     params:
       - name: IMAGE
-        value: $(params.image)
+        value: $(params.image-repository):$(tasks.clone.results.commit)
       - name: CONTEXT
         value: applications/model-gateway
       - name: DOCKERFILE

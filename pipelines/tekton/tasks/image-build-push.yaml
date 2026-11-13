@@ -39,12 +39,34 @@ spec:
       workingDir: $(workspaces.source.path)
       securityContext:
         privileged: true
+        runAsUser: 0
       env:
+        - name: HOME
+          value: /tmp
+        - name: XDG_CONFIG_HOME
+          value: /tmp/.config
+        - name: XDG_CACHE_HOME
+          value: /tmp/.cache
         - name: REGISTRY_AUTH_FILE
           value: /tekton/home/.docker/config.json
       script: |
         #!/bin/sh
         set -eu
+
+        echo "Current directory:"
+        pwd
+
+        echo "Workspace contents:"
+        ls -la "$(workspaces.source.path)"
+
+        echo "Available directories:"
+        find "$(workspaces.source.path)" -maxdepth 3 -type d
+
+        echo "Checking application directory:"
+        test -d "$(workspaces.source.path)/$(params.CONTEXT)" || {
+          echo "ERROR: Application context not found"
+          exit 1
+        }
 
         buildah --storage-driver="$(params.STORAGE_DRIVER)" bud \
           --format oci \
