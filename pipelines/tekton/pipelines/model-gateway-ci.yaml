@@ -13,6 +13,12 @@ spec:
   - name: gitops-file
     type: string
     default: argocd/applications/model-gateway-dev.yaml
+  - name: image
+    type: string
+    default: nawaz343/model-gateway:latest
+  - name: image-repository
+    type: string
+    default: nawaz343/model-gateway
   workspaces:
   - name: source
   tasks:
@@ -47,7 +53,7 @@ spec:
     workspaces: *id001
   - name: image-build-push
     runAfter:
-      - go-test
+      - go-test-build
     taskRef:
       kind: Task
       name: fde-image-build-push
@@ -58,19 +64,26 @@ spec:
         value: applications/model-gateway
       - name: DOCKERFILE
         value: applications/model-gateway/Dockerfile
+    workspaces:
+    - name: source
+      workspace: source
   - name: gitops-promote
-    taskRef:
-      name: fde-gitops-promote
     runAfter:
-    - go-test-build
-    - scan-application
+      - image-build-push
+    taskRef:
+      name: gitops-promote
     params:
-    - name: commit-sha
-      value: $(tasks.clone.results.commit)
-    - name: application
-      value: model-gateway
-    - name: gitops-file
-      value: $(params.gitops-file)
+      - name: commit-sha
+        value: $(tasks.clone.results.commit)
+
+      - name: app-path
+        value: applications/model-gateway
+
+      - name: image-repository
+        value: $(params.image-repository)
+
+      - name: image-tag
+        value: $(tasks.clone.results.commit)
   results:
   - name: validated-commit
     value: $(tasks.clone.results.commit)

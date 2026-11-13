@@ -2,7 +2,7 @@
 apiVersion: tekton.dev/v1
 kind: Task
 metadata:
-  name: fde-gitops-promote
+  name: gitops-promote
   namespace: ai-platform-ci
 
 spec:
@@ -18,9 +18,11 @@ spec:
 
     - name: image-repository
       type: string
+      default: ""
 
     - name: image-tag
       type: string
+      default: ""
 
     - name: gitops-repo
       type: string
@@ -85,6 +87,14 @@ spec:
         # Requires mikefarah/yq v4; Alpine's yq package
         # may differ, so pin a compatible tool image
         # before production use.
+        APP="$APPLICATION"
+        GITOPS_FILE="${GITOPS_FILE:-environments/dev/$APP/values.yaml}"
+
+        IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-$APP}"
+        IMAGE_TAG="${IMAGE_TAG:-$COMMIT_SHA}"
+
+        export IMAGE_REPOSITORY IMAGE_TAG
+
         yq -i '.image.repository = strenv(IMAGE_REPOSITORY) |
                .image.tag = strenv(IMAGE_TAG)' \
           "$GITOPS_FILE"
