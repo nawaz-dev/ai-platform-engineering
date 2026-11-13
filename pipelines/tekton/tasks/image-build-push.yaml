@@ -15,7 +15,7 @@ spec:
     - name: CONTEXT
       type: string
       default: "."
-      description: Build context relative to workspace
+      description: Build context relative to the cloned repository
 
     - name: DOCKERFILE
       type: string
@@ -36,7 +36,7 @@ spec:
   steps:
     - name: build-and-push
       image: quay.io/buildah/stable:v1.39
-      workingDir: $(workspaces.source.path)
+      workingDir: $(workspaces.source.path)/repo
       securityContext:
         privileged: true
         runAsUser: 0
@@ -63,7 +63,7 @@ spec:
         find "$(workspaces.source.path)" -maxdepth 3 -type d
 
         echo "Checking application directory:"
-        test -d "$(workspaces.source.path)/$(params.CONTEXT)" || {
+        test -d "$(params.CONTEXT)" || {
           echo "ERROR: Application context not found"
           exit 1
         }
