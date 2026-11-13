@@ -1,0 +1,76 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: model-gateway-ci
+spec:
+  params:
+  - name: repo-url
+    type: string
+    default: https://github.com/nawaz-dev/ai-platform-engineering.git
+  - name: revision
+    type: string
+    default: main
+  - name: gitops-file
+    type: string
+    default: argocd/applications/model-gateway-dev.yaml
+  workspaces:
+  - name: source
+  tasks:
+  - name: clone
+    taskRef:
+      name: fde-git-clone
+    params:
+    - name: repo-url
+      value: $(params.repo-url)
+    - name: revision
+      value: $(params.revision)
+    workspaces: &id001
+    - name: source
+      workspace: source
+  - name: go-test-build
+    taskRef:
+      name: fde-go-test-build
+    runAfter:
+    - clone
+    params:
+    - name: app-path
+      value: applications/model-gateway
+    workspaces: *id001
+  - name: scan-application
+    taskRef:
+      name: fde-security-scan
+    runAfter:
+    - clone
+    params:
+    - name: scan-path
+      value: applications/model-gateway
+    workspaces: *id001
+  - name: image-build-push
+    runAfter:
+      - go-test
+    taskRef:
+      kind: Task
+      name: fde-image-build-push
+    params:
+      - name: IMAGE
+        value: $(params.image)
+      - name: CONTEXT
+        value: applications/model-gateway
+      - name: DOCKERFILE
+        value: applications/model-gateway/Dockerfile
+  - name: gitops-promote
+    taskRef:
+      name: fde-gitops-promote
+    runAfter:
+    - go-test-build
+    - scan-application
+    params:
+    - name: commit-sha
+      value: $(tasks.clone.results.commit)
+    - name: application
+      value: model-gateway
+    - name: gitops-file
+      value: $(params.gitops-file)
+  results:
+  - name: validated-commit
+    value: $(tasks.clone.results.commit)

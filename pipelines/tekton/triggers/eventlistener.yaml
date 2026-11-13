@@ -1,38 +1,66 @@
-# Event listener that receives repository webhook events.
-
 apiVersion: triggers.tekton.dev/v1beta1
 kind: EventListener
 metadata:
-  name: vllm-github-listener
+  name: monorepo-github-listener
   namespace: ai-platform-ci
 spec:
   serviceAccountName: fde-eventlistener-sa
-
   triggers:
-    - name: github-push
-      interceptors:
-        - ref:
-            name: github
-          params:
-            - name: secretRef
-              value:
-                secretName: github-webhook-secret
-                secretKey: secretToken
-            - name: eventTypes
-              value:
-                - push
-
-        - ref:
-            name: cel
-          params:
-            - name: filter
-              value: >-
-                body.ref == 'refs/heads/main' &&
-                body.repository.full_name == 'nawaz-dev/ai-platform-engineering' &&
-                body.deleted == false
-
-      bindings:
-        - ref: vllm-github-binding
-
-      template:
-        ref: vllm-github-template
+  - name: vllm-push
+    interceptors:
+    - ref:
+        name: github
+      params:
+      - name: secretRef
+        value:
+          secretName: github-webhook-secret
+          secretKey: secretToken
+      - name: eventTypes
+        value:
+        - push
+      - name: addChangedFiles
+        value:
+          enabled: true
+    - ref:
+        name: cel
+      params:
+      - name: filter
+        value: body.ref == 'refs/heads/main' && body.repository.full_name == 'nawaz-dev/ai-platform-engineering'
+          && body.deleted == false && extensions.changed_files.matches('(^|,)(applications/vllm/|helm/vllm/|pipelines/tekton/)')
+    bindings:
+    - ref: github-push-binding
+    - name: pipeline-name
+      value: vllm-ci-pipeline
+    - name: gitops-file
+      value: argocd/applications/vllm-dev.yaml
+    template:
+      ref: application-ci-template
+  - name: model-gateway-push
+    interceptors:
+    - ref:
+        name: github
+      params:
+      - name: secretRef
+        value:
+          secretName: github-webhook-secret
+          secretKey: secretToken
+      - name: eventTypes
+        value:
+        - push
+      - name: addChangedFiles
+        value:
+          enabled: true
+    - ref:
+        name: cel
+      params:
+      - name: filter
+        value: body.ref == 'refs/heads/main' && body.repository.full_name == 'nawaz-dev/ai-platform-engineering'
+          && body.deleted == false && extensions.changed_files.matches('(^|,)(applications/model-gateway/|pipelines/tekton/)')
+    bindings:
+    - ref: github-push-binding
+    - name: pipeline-name
+      value: model-gateway-ci
+    - name: gitops-file
+      value: argocd/applications/model-gateway-dev.yaml
+    template:
+      ref: application-ci-template

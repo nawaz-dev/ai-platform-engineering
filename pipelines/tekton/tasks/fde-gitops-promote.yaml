@@ -1,0 +1,105 @@
+
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: fde-gitops-promote
+  namespace: ai-platform-ci
+
+spec:
+  params:
+    - name: application
+      type: string
+
+    - name: commit-sha
+      type: string
+
+    - name: gitops-file
+      type: string
+
+    - name: image-repository
+      type: string
+
+    - name: image-tag
+      type: string
+
+    - name: gitops-repo
+      type: string
+      default: https://github.com/nawaz-dev/ai-gitops.git
+
+    - name: gitops-branch
+      type: string
+      default: main
+
+  steps:
+    - name: update-gitops
+      image: alpine:3.21
+      env:
+        - name: GITHUB_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: gitops-github-token
+              key: token
+        - name: APP
+          value: $(params.application)
+        - name: COMMIT_SHA
+          value: $(params.commit-sha)
+        - name: GITOPS_FILE
+          value: $(params.gitops-file)
+        - name: IMAGE_REPOSITORY
+          value: $(params.image-repository)
+        - name: IMAGE_TAG
+          value: $(params.image-tag)
+        - name: GITOPS_REPO
+          value: $(params.gitops-repo)
+        - name: GITOPS_BRANCH
+          value: $(params.gitops-branch)
+
+      script: |
+        #!/bin/sh
+        set -eu
+
+        apk add --no-cache git yq
+
+        cd /tmp
+
+        # Clone using temporary Git credentials.
+        cat > /tmp/git-askpass.sh <<'EOF'
+        #!/bin/sh
+        case "$1" in
+          *Username*) echo "x-access-token" ;;
+          *Password*) echo "$GITHUB_TOKEN" ;;
+        esac
+        EOF
+        chmod 700 /tmp/git-askpass.sh
+
+        export GIT_ASKPASS=/tmp/git-askpass.sh
+        export GIT_TERMINAL_PROMPT=0
+
+        git clone --branch "$GITOPS_BRANCH" \
+          "$GITOPS_REPO" ai-gitops
+
+        cd ai-gitops
+
+        test -f "$GITOPS_FILE"
+
+        # Requires mikefarah/yq v4; Alpine's yq package
+        # may differ, so pin a compatible tool image
+        # before production use.
+        yq -i '.image.repository = strenv(IMAGE_REPOSITORY) |
+               .image.tag = strenv(IMAGE_TAG)' \
+          "$GITOPS_FILE"
+
+        git config user.name "tekton-ci"
+        git config user.email "tekton-ci@users.noreply.github.com"
+
+        git add "$GITOPS_FILE"
+
+        if git diff --cached --quiet; then
+          echo "No GitOps changes required"
+          exit 0
+        fi
+
+        git commit -m \
+          "ci($APP): promote $COMMIT_SHA"
+
+        git push origin "$GITOPS_BRANCH"

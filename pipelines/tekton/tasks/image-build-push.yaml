@@ -1,0 +1,60 @@
+
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: fde-image-build-push
+  namespace: ai-platform-ci
+spec:
+  description: Build and push an OCI image using Buildah.
+
+  params:
+    - name: IMAGE
+      type: string
+      description: Full image destination including tag
+
+    - name: CONTEXT
+      type: string
+      default: "."
+      description: Build context relative to workspace
+
+    - name: DOCKERFILE
+      type: string
+      default: "./Dockerfile"
+      description: Dockerfile relative to workspace
+
+    - name: STORAGE_DRIVER
+      type: string
+      default: vfs
+
+  workspaces:
+    - name: source
+
+  results:
+    - name: IMAGE_DIGEST
+      description: Digest of the pushed image
+
+  steps:
+    - name: build-and-push
+      image: quay.io/buildah/stable:v1.39
+      workingDir: $(workspaces.source.path)
+      securityContext:
+        privileged: true
+      env:
+        - name: REGISTRY_AUTH_FILE
+          value: /tekton/home/.docker/config.json
+      script: |
+        #!/bin/sh
+        set -eu
+
+        buildah --storage-driver="$(params.STORAGE_DRIVER)" bud \
+          --format oci \
+          --file "$(params.DOCKERFILE)" \
+          --tag "$(params.IMAGE)" \
+          "$(params.CONTEXT)"
+
+        buildah --storage-driver="$(params.STORAGE_DRIVER)" push \
+          --digestfile "$(results.IMAGE_DIGEST.path)" \
+          "$(params.IMAGE)" \
+          "docker://$(params.IMAGE)"
+
+        echo "Successfully pushed $(params.IMAGE)"

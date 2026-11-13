@@ -4,171 +4,102 @@ kind: Task
 metadata:
   name: fde-gitops-promote
   namespace: ai-platform-ci
-spec:
-  description: >
-    Clone ai-gitops, update the validated vLLM commit,
-    push a promotion branch, and create a GitHub pull request.
 
+spec:
   params:
+    - name: application
+      type: string
+
     - name: commit-sha
       type: string
-      description: Validated application Git commit SHA
+
+    - name: gitops-file
+      type: string
+
+    - name: image-repository
+      type: string
+
+    - name: image-tag
+      type: string
+
+    - name: gitops-repo
+      type: string
+      default: https://github.com/nawaz-dev/ai-gitops.git
+
+    - name: gitops-branch
+      type: string
+      default: main
 
   steps:
-    - name: gitops-promote
+    - name: update-gitops
       image: nawaz343/fde-gitops-tools:v1
-
       env:
         - name: GITHUB_TOKEN
           valueFrom:
             secretKeyRef:
-              name: github-gitops-token
+              name: gitops-github-token
               key: token
+        - name: APP
+          value: $(params.application)
         - name: COMMIT_SHA
           value: $(params.commit-sha)
-        - name: HOME
-          value: /tmp
+        - name: GITOPS_FILE
+          value: $(params.gitops-file)
+        - name: IMAGE_REPOSITORY
+          value: $(params.image-repository)
+        - name: IMAGE_TAG
+          value: $(params.image-tag)
+        - name: GITOPS_REPO
+          value: $(params.gitops-repo)
+        - name: GITOPS_BRANCH
+          value: $(params.gitops-branch)
 
       script: |
         #!/bin/sh
         set -eu
 
-        OWNER="nawaz-dev"
-        REPO="ai-gitops"
-        GITOPS_URL="https://github.com/${OWNER}/${REPO}.git"
-        API_URL="https://api.github.com/repos/${OWNER}/${REPO}"
-        FILE="argocd/applications/vllm-dev.yaml"
-        BRANCH="promote/vllm-$(printf '%s' "$COMMIT_SHA" | cut -c1-12)"
+        apk add --no-cache git yq
 
-        case "$COMMIT_SHA" in
-          *[!0-9a-f]*)
-            echo "ERROR: Invalid commit SHA"
-            exit 1
-            ;;
-        esac
-
-        if [ "${#COMMIT_SHA}" -ne 40 ]; then
-          echo "ERROR: Commit SHA must be 40 characters"
-          exit 1
-        fi
-
-        echo "Validated commit: $COMMIT_SHA"
-
-        git config --global user.name "Tekton CI"
-        git config --global user.email "tekton-ci@users.noreply.github.com"
-
-        # Keep the token out of the Git remote URL and logs.
-        export GIT_CONFIG_COUNT=1
-        export GIT_CONFIG_KEY_0="http.https://github.com/.extraheader"
-        AUTH="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
-        export GIT_CONFIG_VALUE_0="Authorization: Basic $AUTH"
-        unset AUTH
-
-        echo "Cloning GitOps repository..."
         cd /tmp
-        git clone --branch main "$GITOPS_URL" ai-gitops
+
+        # Clone using temporary Git credentials.
+        cat > /tmp/git-askpass.sh <<'EOF'
+        #!/bin/sh
+        case "$1" in
+          *Username*) echo "x-access-token" ;;
+          *Password*) echo "$GITHUB_TOKEN" ;;
+        esac
+        EOF
+        chmod 700 /tmp/git-askpass.sh
+
+        export GIT_ASKPASS=/tmp/git-askpass.sh
+        export GIT_TERMINAL_PROMPT=0
+
+        git clone --branch "$GITOPS_BRANCH" \
+          "$GITOPS_REPO" ai-gitops
+
         cd ai-gitops
 
-        CURRENT_REVISION="$(
-          sed -n '/repoURL: https:\/\/github.com\/nawaz-dev\/ai-platform-engineering.git/{n;s/^[[:space:]]*targetRevision:[[:space:]]*//p;}' "$FILE" |
-          head -n 1
-        )"
+        test -f "$GITOPS_FILE"
 
-        if [ -z "$CURRENT_REVISION" ]; then
-          echo "ERROR: Application source revision not found"
-          exit 1
-        fi
+        # Requires mikefarah/yq v4; Alpine's yq package
+        # may differ, so pin a compatible tool image
+        # before production use.
+        yq -i '.image.repository = strenv(IMAGE_REPOSITORY) |
+               .image.tag = strenv(IMAGE_TAG)' \
+          "$GITOPS_FILE"
 
-        if [ "$CURRENT_REVISION" = "$COMMIT_SHA" ]; then
-          echo "GitOps already references this commit. Nothing to promote."
+        git config user.name "tekton-ci"
+        git config user.email "tekton-ci@users.noreply.github.com"
+
+        git add "$GITOPS_FILE"
+
+        if git diff --cached --quiet; then
+          echo "No GitOps changes required"
           exit 0
         fi
 
-        echo "Creating or checking promotion branch..."
+        git commit -m \
+          "ci($APP): promote $COMMIT_SHA"
 
-        if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-          echo "Promotion branch already exists."
-          git fetch origin "$BRANCH"
-          git checkout -B "$BRANCH" FETCH_HEAD
-        else
-          git checkout -b "$BRANCH"
-        fi
-
-        # Update only the targetRevision immediately following
-        # the ai-platform-engineering repository URL.
-        awk -v revision="$COMMIT_SHA" '
-          /repoURL: https:\/\/github.com\/nawaz-dev\/ai-platform-engineering.git/ {
-            print
-            if (getline > 0) {
-              if ($0 !~ /^[[:space:]]*targetRevision:/) {
-                print "ERROR: Expected targetRevision after repoURL" > "/dev/stderr"
-                exit 1
-              }
-              sub(/targetRevision:.*/, "targetRevision: " revision)
-              updated++
-              print
-            }
-            next
-          }
-          { print }
-          END {
-            if (updated != 1) {
-              print "ERROR: Expected exactly one Helm source" > "/dev/stderr"
-              exit 1
-            }
-          }
-        ' "$FILE" > /tmp/vllm-dev.updated.yaml
-
-        mv /tmp/vllm-dev.updated.yaml "$FILE"
-
-        if git diff --quiet -- "$FILE"; then
-          echo "Promotion branch already contains this revision."
-        else
-          git add "$FILE"
-          git commit -m "chore(gitops): promote vllm to ${COMMIT_SHA}"
-          git push -u origin "$BRANCH"
-        fi
-
-        echo "Checking existing pull requests..."
-
-        PR_URL="$(
-          curl -fsS \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            "${API_URL}/pulls?state=open&head=${OWNER}:${BRANCH}&base=main" |
-          jq -r '.[0].html_url // empty'
-        )"
-
-        if [ -n "$PR_URL" ]; then
-          echo "Existing promotion PR: $PR_URL"
-          exit 0
-        fi
-
-        echo "Creating GitHub pull request..."
-
-        PAYLOAD="$(
-          jq -n \
-            --arg title "Promote vLLM to ${COMMIT_SHA}" \
-            --arg head "$BRANCH" \
-            --arg base "main" \
-            --arg body "Automated Tekton CI promotion. Validated source commit: ${COMMIT_SHA}. Review before merging." \
-            '{
-              title: $title,
-              head: $head,
-              base: $base,
-              body: $body
-            }'
-        )"
-
-        PR_RESPONSE="$(
-          curl -fsS \
-            -X POST \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            -H "Accept: application/vnd.github+json" \
-            -H "Content-Type: application/json" \
-            -d "$PAYLOAD" \
-            "${API_URL}/pulls"
-        )"
-
-        echo "Promotion PR created:"
-        printf '%s\n' "$PR_RESPONSE" | jq -r '.html_url'
+        git push origin "$GITOPS_BRANCH"

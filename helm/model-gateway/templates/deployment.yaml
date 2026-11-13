@@ -1,0 +1,57 @@
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/name: model-gateway
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/name: model-gateway
+      annotations:
+        checksum/models: {{ .Values.models | toJson | sha256sum | quote }}
+    spec:
+      containers:
+        - name: model-gateway
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.gateway.port }}
+          env:
+            - name: PORT
+              value: {{ .Values.gateway.port | quote }}
+            - name: REDIS_ADDR
+              value: {{ .Values.gateway.redisAddr | quote }}
+            - name: RATE_LIMIT_RPM
+              value: {{ .Values.gateway.rateLimitRPM | quote }}
+            - name: MODELS_CONFIG_PATH
+              value: {{ .Values.gateway.modelConfigMountPath | quote }}
+            - name: GATEWAY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.gateway.existingSecret }}
+                  key: GATEWAY_API_KEY
+          volumeMounts:
+            - name: models
+              mountPath: {{ .Values.gateway.modelConfigMountPath }}
+              subPath: models.json
+              readOnly: true
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: models
+          configMap:
+            name: {{ .Release.Name }}-models

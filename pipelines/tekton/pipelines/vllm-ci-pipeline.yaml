@@ -1,64 +1,77 @@
-# Tekton pipeline for validating the vLLM application and chart.
-
 apiVersion: tekton.dev/v1
 kind: Pipeline
 metadata:
   name: vllm-ci-pipeline
 spec:
   params:
-    - name: repo-url
-      type: string
-      default: https://github.com/nawaz-dev/ai-platform-engineering.git
-    - name: revision
-      type: string
-      default: main
-
+  - name: repo-url
+    type: string
+    default: https://github.com/nawaz-dev/ai-platform-engineering.git
+  - name: revision
+    type: string
+    default: main
+  - name: gitops-file
+    type: string
+    default: argocd/applications/vllm-dev.yaml
   workspaces:
-    - name: source
-
+  - name: source
   tasks:
-    - name: clone
-      taskRef:
-        name: fde-git-clone
-      params:
-        - name: repo-url
-          value: $(params.repo-url)
-        - name: revision
-          value: $(params.revision)
-      workspaces:
-        - name: source
-          workspace: source
-
-    - name: helm-validation
-      runAfter:
-        - clone
-      taskRef:
-        name: fde-helm-validate
-      workspaces:
-        - name: source
-          workspace: source
-
-    - name: security-scan
-      runAfter:
-        - helm-validation
-      taskRef:
-        name: fde-security-scan
-      workspaces:
-        - name: source
-          workspace: source
-
-    - name: gitops-promote
-      runAfter:
-        - security-scan
-      taskRef:
-        name: fde-gitops-promote
-      params:
-      - name: commit-sha
-        value: $(tasks.clone.results.commit)
-      workspaces:
-        - name: source
-          workspace: source
-
-  results:
-    - name: validated-commit
+  - name: clone
+    taskRef:
+      name: fde-git-clone
+    params:
+    - name: repo-url
+      value: $(params.repo-url)
+    - name: revision
+      value: $(params.revision)
+    workspaces: &id001
+    - name: source
+      workspace: source
+  - name: helm-validation
+    taskRef:
+      name: fde-helm-validate
+    runAfter:
+    - clone
+    params:
+    - name: chart-path
+      value: helm/vllm
+    - name: release-name
+      value: vllm
+    workspaces: *id001
+  - name: scan-application
+    taskRef:
+      name: fde-security-scan
+    runAfter:
+    - clone
+    params:
+    - name: scan-path
+      value: applications/vllm
+    workspaces: *id001
+  - name: scan-chart
+    taskRef:
+      name: fde-security-scan
+    runAfter:
+    - clone
+    params:
+    - name: scan-path
+      value: helm/vllm
+    - name: scanners
+      value: misconfig,secret
+    workspaces: *id001
+  - name: gitops-promote
+    taskRef:
+      name: fde-gitops-promote
+    runAfter:
+    - helm-validation
+    - scan-application
+    - scan-chart
+    params:
+    - name: commit-sha
       value: $(tasks.clone.results.commit)
+    - name: application
+      value: vllm
+    - name: gitops-file
+      value: $(params.gitops-file)
+  results:
+  - name: validated-commit
+    value: $(tasks.clone.results.commit)

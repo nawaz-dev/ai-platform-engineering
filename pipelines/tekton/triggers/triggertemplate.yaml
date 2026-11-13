@@ -1,40 +1,36 @@
-# Trigger template for creating the vLLM CI pipeline run.
-
 apiVersion: triggers.tekton.dev/v1beta1
 kind: TriggerTemplate
 metadata:
-  name: vllm-github-template
-  namespace: ai-platform-ci
+  name: application-ci-template
 spec:
   params:
-    - name: git-revision
-      description: Git commit SHA
-
+  - name: git-revision
+    description: Git commit SHA
+  - name: pipeline-name
+  - name: gitops-file
   resourcetemplates:
-    - apiVersion: tekton.dev/v1
-      kind: PipelineRun
-      metadata:
-        generateName: vllm-github-ci-
-        namespace: ai-platform-ci
-      spec:
-        pipelineRef:
-          name: vllm-ci-pipeline
-
-        taskRunTemplate:
-          serviceAccountName: fde-tekton-sa
-
-        params:
-          - name: repo-url
-            value: https://github.com/nawaz-dev/ai-platform-engineering.git
-          - name: revision
-            value: $(tt.params.git-revision)
-
-        workspaces:
-          - name: source
-            volumeClaimTemplate:
-              spec:
-                accessModes:
-                  - ReadWriteOnce
-                resources:
-                  requests:
-                    storage: 1Gi
+  - apiVersion: tekton.dev/v1
+    kind: PipelineRun
+    metadata:
+      generateName: application-ci-
+    spec:
+      pipelineRef:
+        name: $(tt.params.pipeline-name)
+      taskRunTemplate:
+        serviceAccountName: fde-tekton-sa
+      params:
+      - name: repo-url
+        value: https://github.com/nawaz-dev/ai-platform-engineering.git
+      - name: revision
+        value: $(tt.params.git-revision)
+      - name: gitops-file
+        value: $(tt.params.gitops-file)
+      workspaces:
+      - name: source
+        volumeClaimTemplate:
+          spec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 1Gi

@@ -1,0 +1,23 @@
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: fde-go-test-build
+spec:
+  params:
+  - name: app-path
+    type: string
+  - name: go-image
+    type: string
+    default: golang:1.26
+  steps:
+  - name: test-build
+    image: $(params.go-image)
+    workingDir: $(workspaces.source.path)/repo/$(params.app-path)
+    script: |
+      #!/bin/sh
+      set -eu
+
+      go test ./...
+      go build ./...
+  workspaces:
+  - name: source
