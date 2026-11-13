@@ -8,7 +8,7 @@ spec:
     type: string
   - name: go-image
     type: string
-    default: golang:1.26
+    default: docker.io/library/golang:1.26
   steps:
   - name: test-build
     image: $(params.go-image)

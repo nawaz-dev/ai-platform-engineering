@@ -16,6 +16,9 @@ spec:
     spec:
       pipelineRef:
         name: $(tt.params.pipeline-name)
+      taskRunSpecs:
+      - pipelineTaskName: image-build-push
+        serviceAccountName: fde-tekton-sa
       taskRunTemplate:
         serviceAccountName: fde-tekton-sa
       params:

@@ -42,7 +42,7 @@ spec:
         - name: GITHUB_TOKEN
           valueFrom:
             secretKeyRef:
-              name: gitops-github-token
+              name: github-gitops-token
               key: token
         - name: APP
           value: $(params.application)

@@ -42,7 +42,7 @@ spec:
         runAsUser: 0
       env:
         - name: HOME
-          value: /tmp
+          value: /tekton/home
         - name: XDG_CONFIG_HOME
           value: /tmp/.config
         - name: XDG_CACHE_HOME
@@ -67,6 +67,17 @@ spec:
           echo "ERROR: Application context not found"
           exit 1
         }
+
+        if [ ! -r "$REGISTRY_AUTH_FILE" ] && [ -r /tekton/creds/.docker/config.json ]; then
+          mkdir -p "$(dirname "$REGISTRY_AUTH_FILE")"
+          cp /tekton/creds/.docker/config.json "$REGISTRY_AUTH_FILE"
+        fi
+
+        if [ ! -r "$REGISTRY_AUTH_FILE" ]; then
+          echo "ERROR: Docker registry credentials were not initialized at $REGISTRY_AUTH_FILE"
+          echo "Ensure dockerhub-credentials is annotated with tekton.dev/docker-0 and attached to fde-tekton-sa"
+          exit 1
+        fi
 
         buildah --storage-driver="$(params.STORAGE_DRIVER)" bud \
           --format oci \

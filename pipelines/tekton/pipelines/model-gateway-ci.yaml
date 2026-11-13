@@ -15,10 +15,10 @@ spec:
     default: argocd/applications/model-gateway-dev.yaml
   - name: image
     type: string
-    default: nawaz343/model-gateway:latest
+    default: docker.io/nawaz343/model-gateway:latest
   - name: image-repository
     type: string
-    default: nawaz343/model-gateway
+    default: docker.io/nawaz343/model-gateway
   workspaces:
   - name: source
   tasks:

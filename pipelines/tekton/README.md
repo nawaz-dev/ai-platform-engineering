@@ -37,6 +37,22 @@ Before sending events, provision these secrets in `ai-platform-ci` through your 
 
 - `github-webhook-secret`, key `secretToken`: the same secret configured on the GitHub webhook.
 - `github-gitops-token`, key `token`: a token with contents and pull-request write access to the GitOps repository.
+- `dockerhub-credentials`: a `kubernetes.io/dockerconfigjson` secret for the `nawaz343` Docker Hub account. The `fde-tekton-sa` service account uses it to push `docker.io/nawaz343/model-gateway`.
+
+For example, create the registry secret without storing the password in Git:
+
+```sh
+kubectl create secret docker-registry dockerhub-credentials \
+  -n ai-platform-ci \
+  --docker-server=https://index.docker.io/v1/ \
+  --docker-username=nawaz343 \
+  --docker-password='YOUR_DOCKER_HUB_TOKEN'
+
+kubectl annotate secret dockerhub-credentials \
+  -n ai-platform-ci \
+  tekton.dev/docker-0=https://index.docker.io/v1/ \
+  --overwrite
+```
 
 Configure GitHub to send **push** events as `application/json` to the listener endpoint. On OpenShift, customize the host in `pipelines/routes/github-webhook-route.yaml` and apply that file. Else expose `el-monorepo-github-listener` using your ingress. For private source repositories, configure `addChangedFiles.personalAccessToken` on both GitHub interceptors and provide separate authenticated checkout credentials; the default clone supports public repositories.
 
