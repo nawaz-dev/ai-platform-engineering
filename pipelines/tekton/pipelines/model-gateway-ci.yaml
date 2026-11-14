@@ -78,8 +78,8 @@ spec:
       - name: commit-sha
         value: $(tasks.clone.results.commit)
 
-      - name: app-path
-        value: applications/model-gateway
+      - name: gitops-file
+        value: $(params.gitops-file)
 
       - name: image-repository
         value: $(params.image-repository)

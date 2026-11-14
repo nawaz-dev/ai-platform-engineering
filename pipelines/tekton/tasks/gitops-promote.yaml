@@ -37,8 +37,14 @@ spec:
 
   steps:
     - name: update-gitops
-      image: nawaz343/fde-gitops-tools:v1
+      image: docker.io/nawaz343/fde-gitops-tools:v1
+      securityContext:
+        runAsUser: 0
       env:
+        - name: HOME
+          value: /tmp
+        - name: XDG_CONFIG_HOME
+          value: /tmp/.config
         - name: GITHUB_TOKEN
           valueFrom:
             secretKeyRef:
@@ -63,7 +69,9 @@ spec:
         #!/bin/sh
         set -eu
 
-        apk add --no-cache git yq
+        echo "Installing GitOps promotion tools..."
+        timeout 120 apk add --no-cache git yq
+        echo "GitOps promotion tools installed"
 
         cd /tmp
 
@@ -79,20 +87,26 @@ spec:
 
         export GIT_ASKPASS=/tmp/git-askpass.sh
         export GIT_TERMINAL_PROMPT=0
+        export GIT_HTTP_LOW_SPEED_LIMIT=1000
+        export GIT_HTTP_LOW_SPEED_TIME=30
 
-        git clone --branch "$GITOPS_BRANCH" \
+        echo "Cloning $GITOPS_REPO branch $GITOPS_BRANCH..."
+        timeout 180 git clone --progress --branch "$GITOPS_BRANCH" \
           "$GITOPS_REPO" ai-gitops
+        echo "GitOps repository cloned"
 
         cd ai-gitops
 
-        test -f "$GITOPS_FILE"
+        GITOPS_FILE="${GITOPS_FILE:-environments/dev/$APP/values.yaml}"
+        echo "Checking GitOps file: $GITOPS_FILE"
+        if [ ! -f "$GITOPS_FILE" ]; then
+          echo "ERROR: GitOps file not found: $GITOPS_FILE"
+          exit 1
+        fi
 
         # Requires mikefarah/yq v4; Alpine's yq package
         # may differ, so pin a compatible tool image
         # before production use.
-        APP="$APPLICATION"
-        GITOPS_FILE="${GITOPS_FILE:-environments/dev/$APP/values.yaml}"
-
         IMAGE_REPOSITORY="${IMAGE_REPOSITORY:-$APP}"
         IMAGE_TAG="${IMAGE_TAG:-$COMMIT_SHA}"
 
