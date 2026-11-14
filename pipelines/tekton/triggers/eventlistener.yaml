@@ -32,7 +32,7 @@ spec:
     - name: pipeline-name
       value: vllm-ci-pipeline
     - name: gitops-file
-      value: argocd/applications/vllm-dev.yaml
+      value: environments/dev/vllm/values.yaml
     template:
       ref: application-ci-template
   - name: model-gateway-push
@@ -61,6 +61,6 @@ spec:
     - name: pipeline-name
       value: model-gateway-ci
     - name: gitops-file
-      value: argocd/applications/model-gateway-dev.yaml
+      value: environments/dev/model-gateway/values.yaml
     template:
       ref: application-ci-template

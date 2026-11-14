@@ -12,7 +12,7 @@ spec:
     default: main
   - name: gitops-file
     type: string
-    default: argocd/applications/model-gateway-dev.yaml
+    default: environments/dev/model-gateway/values.yaml
   - name: image
     type: string
     default: docker.io/nawaz343/model-gateway:latest

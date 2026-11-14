@@ -32,7 +32,9 @@ spec:
 
   steps:
     - name: update-gitops
-      image: alpine:3.21
+      image: docker.io/library/alpine:3.21
+      securityContext:
+        runAsUser: 0
       env:
         - name: GITHUB_TOKEN
           valueFrom:
