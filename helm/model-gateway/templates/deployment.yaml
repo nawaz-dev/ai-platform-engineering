@@ -32,7 +32,7 @@ spec:
               value: {{ .Values.gateway.redisAddr | quote }}
             - name: RATE_LIMIT_RPM
               value: {{ .Values.gateway.rateLimitRPM | quote }}
-            - name: MODELS_CONFIG_PATH
+            - name: MODELS_CONFIG
               value: {{ .Values.gateway.modelConfigMountPath | quote }}
             - name: GATEWAY_API_KEY
               valueFrom:
