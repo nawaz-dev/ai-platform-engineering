@@ -18,11 +18,19 @@ spec:
     {{- toYaml .Values.strategy | nindent 4 }}
   selector:
     matchLabels:
+      {{- if .Values.selectorLabels }}
+      {{- toYaml .Values.selectorLabels | nindent 6 }}
+      {{- else }}
       {{- include "generic-app.selectorLabels" . | nindent 6 }}
+      {{- end }}
   template:
     metadata:
       labels:
+        {{- if .Values.selectorLabels }}
+        {{- toYaml .Values.selectorLabels | nindent 8 }}
+        {{- else }}
         {{- include "generic-app.selectorLabels" . | nindent 8 }}
+        {{- end }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
