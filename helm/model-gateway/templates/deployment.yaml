@@ -1,12 +1,24 @@
-
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}
   labels:
     app.kubernetes.io/name: model-gateway
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    {{- with .Values.deployment.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.deployment.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   replicas: {{ .Values.replicaCount }}
+  revisionHistoryLimit: {{ .Values.deployment.revisionHistoryLimit }}
+  {{- with .Values.deployment.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/instance: {{ .Release.Name }}
@@ -15,43 +27,62 @@ spec:
       labels:
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/name: model-gateway
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       annotations:
         checksum/models: {{ .Values.models | toJson | sha256sum | quote }}
+        checksum/env: {{ .Values.configMap.env.values | toJson | sha256sum | quote }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serviceAccountName }}
+      serviceAccountName: {{ . }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if not .Values.containers }}
+      {{- fail "containers must contain at least one container" }}
+      {{- end }}
       containers:
-        - name: model-gateway
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: http
-              containerPort: {{ .Values.gateway.port }}
+        {{- range $container := .Values.containers }}
+        {{- $containerFields := omit $container "env" }}
+        {{- tpl (toYaml (list $containerFields)) $ | nindent 8 }}
+          {{- if or (and $.Values.configMap.enabled $.Values.configMap.env.enabled) $container.env }}
           env:
-            - name: PORT
-              value: {{ .Values.gateway.port | quote }}
-            - name: REDIS_ADDR
-              value: {{ .Values.gateway.redisAddr | quote }}
-            - name: RATE_LIMIT_RPM
-              value: {{ .Values.gateway.rateLimitRPM | quote }}
-            - name: MODELS_CONFIG
-              value: {{ .Values.gateway.modelConfigMountPath | quote }}
-            - name: GATEWAY_API_KEY
+            {{- if and $.Values.configMap.enabled $.Values.configMap.env.enabled }}
+            {{- range $key, $_ := $.Values.configMap.env.values }}
+            - name: {{ $key }}
               valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.gateway.existingSecret }}
-                  key: GATEWAY_API_KEY
-          volumeMounts:
-            - name: models
-              mountPath: {{ .Values.gateway.modelConfigMountPath }}
-              subPath: models.json
-              readOnly: true
-          readinessProbe:
-            tcpSocket:
-              port: http
-            initialDelaySeconds: 3
-            periodSeconds: 5
-          resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+                configMapKeyRef:
+                  name: {{ tpl (default (printf "%s-models" $.Release.Name) $.Values.configMap.name) $ }}
+                  key: {{ $key }}
+            {{- end }}
+            {{- end }}
+            {{- with $container.env }}
+            {{- tpl (toYaml .) $ | nindent 12 }}
+            {{- end }}
+          {{- end }}
+        {{- end }}
       volumes:
-        - name: models
-          configMap:
-            name: {{ .Release.Name }}-models
+        {{- tpl (toYaml .Values.volumes) . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

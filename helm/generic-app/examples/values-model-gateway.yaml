@@ -1,0 +1,27 @@
+# Example override for a gateway with application-defined /health and /ready endpoints.
+image:
+  repository: registry.example.local/ai/model-gateway
+  tag: "1.0.0"
+replicaCount: 1
+service:
+  enabled: true
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+env:
+  - name: PORT
+    value: "8080"
+  - name: MODEL_BACKEND_URL
+    valueFrom:
+      secretKeyRef:
+        name: model-gateway-config
+        key: backend-url
+volumes:
+  - name: tmp
+    emptyDir: {}
+volumeMounts:
+  - name: tmp
+    mountPath: /tmp

@@ -1,0 +1,27 @@
+# Source PVC mounted ONLY by init container; main app reads the copied emptyDir.
+# Source and app must be in the same namespace.
+volumes:
+  - name: global-skills
+    persistentVolumeClaim:
+      claimName: ai-global-skills-pvc
+  - name: copied-skills
+    emptyDir: {}
+  - name: tmp
+    emptyDir: {}
+initContainers:
+  - name: copy-skills
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args: ["cp -R /source/. /destination/"]
+    volumeMounts:
+      - name: global-skills
+        mountPath: /source
+        readOnly: true
+      - name: copied-skills
+        mountPath: /destination
+volumeMounts:
+  - name: copied-skills
+    mountPath: /app/skills
+    readOnly: true
+  - name: tmp
+    mountPath: /tmp

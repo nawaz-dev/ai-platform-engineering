@@ -1,0 +1,22 @@
+# Example: existing shared RWX claim plus independent upload PVC.
+# Claims must exist in the SAME namespace as the RAG pod.
+image:
+  repository: registry.example.local/ai/rag-api
+  tag: "1.0.0"
+volumes:
+  - name: shared-documents
+    persistentVolumeClaim:
+      claimName: ai-platform-shared-pvc
+  - name: uploads
+    persistentVolumeClaim:
+      claimName: rag-uploads-pvc
+  - name: tmp
+    emptyDir: {}
+volumeMounts:
+  - name: shared-documents
+    mountPath: /app/documents
+    readOnly: true
+  - name: uploads
+    mountPath: /app/uploads
+  - name: tmp
+    mountPath: /tmp

@@ -1,0 +1,38 @@
+# Example override for a chart which maps volumes, volumeMounts and initContainers
+# into the PodSpec/ContainerSpec. It assumes ai-platform-shared-pvc already exists.
+volumes:
+  - name: common-data
+    persistentVolumeClaim:
+      claimName: ai-platform-shared-pvc
+  - name: tmp
+    emptyDir:
+      sizeLimit: 1Gi
+  - name: global-skills
+    persistentVolumeClaim:
+      claimName: global-skills-pvc
+  - name: copied-skills
+    emptyDir: {}
+
+# Main container sees common-data and copied-skills, but NOT global-skills PVC.
+volumeMounts:
+  - name: common-data
+    mountPath: /app/shared
+    subPath: documents
+  - name: copied-skills
+    mountPath: /app/skills
+  - name: tmp
+    mountPath: /tmp
+
+# Init-only global-skills PVC; init copies to emptyDir for the main container.
+initContainers:
+  - name: import-skills
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args:
+      - "cp -R /skills-source/. /skills-target/"
+    volumeMounts:
+      - name: global-skills
+        mountPath: /skills-source
+        readOnly: true
+      - name: copied-skills
+        mountPath: /skills-target

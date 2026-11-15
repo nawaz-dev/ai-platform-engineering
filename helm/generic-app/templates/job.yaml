@@ -1,0 +1,42 @@
+{{- range .Values.jobs }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "generic-app.fullname" $ }}-{{ .name }}
+  namespace: {{ include "generic-app.namespace" $ }}
+  labels:
+    {{- include "generic-app.labels" $ | nindent 4 }}
+spec:
+  backoffLimit: {{ default 2 .backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "generic-app.selectorLabels" $ | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "generic-app.serviceAccountName" $ }}
+      restartPolicy: {{ default "Never" .restartPolicy }}
+      containers:
+        - name: {{ .name }}
+          image: {{ .image | quote }}
+          {{- with .command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

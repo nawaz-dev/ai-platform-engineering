@@ -58,7 +58,7 @@ Configure GitHub to send **push** events as `application/json` to the listener e
 
 ## GitOps contract
 
-The shared promotion task defaults to `nawaz-dev/ai-gitops`, branch `main`. The triggers select `argocd/applications/vllm-dev.yaml` and `argocd/applications/model-gateway-dev.yaml`. Confirm these files exist in your GitOps repository before enabling webhooks. Each must contain exactly one Helm source with `repoURL: https://github.com/nawaz-dev/ai-platform-engineering.git` immediately followed by `targetRevision:`. Promotion updates that revision to the validated SHA and opens an application-specific PR. Argo CD deploys after that PR is merged, according to its sync policy. The task retains the existing `nawaz343/fde-gitops-tools:v1` image contract: Git, curl, jq, base64, awk, and sed must be available.
+The shared promotion task defaults to `nawaz-dev/ai-gitops`, branch `main`. The triggers select `argocd/applications/vllm-dev.yaml` for vLLM and `environments/dev/model-gateway/values.yaml` for the model gateway. Confirm these files exist in your GitOps repository before enabling webhooks. The promotion task updates the selected image repository and tag, then pushes the change to the GitOps branch. Argo CD deploys after that change is merged, according to its sync policy. The task retains the existing `nawaz343/fde-gitops-tools:v1` image contract: Git, curl, jq, yq, base64, awk, and sed must be available.
 
 The two pipelines promote independently; a failure in one blocks only that application's promotion. Existing promotion branches and PRs are reused for a repeated application/SHA pair.
 

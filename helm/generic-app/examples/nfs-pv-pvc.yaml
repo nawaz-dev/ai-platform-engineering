@@ -1,0 +1,35 @@
+# EXAMPLE ONLY. Replace the NFS address/export with your real reachable NFS server.
+# Static NFS PVs are cluster-scoped. PVCs are namespace-scoped.
+# Ensure your NFS server is provisioned, exported, reachable from k3d nodes,
+# and compatible with the container UID/GID permissions.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ai-platform-nfs-pv
+spec:
+  capacity:
+    storage: 20Gi
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ai-platform-static-nfs
+  mountOptions:
+    - nfsvers=4.1
+  nfs:
+    server: 192.168.1.50
+    path: /exports/ai-platform
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ai-platform-shared-pvc
+  namespace: ai-platform
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ai-platform-static-nfs
+  volumeName: ai-platform-nfs-pv
+  resources:
+    requests:
+      storage: 20Gi

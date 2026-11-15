@@ -1,0 +1,40 @@
+{{- range .Values.cronJobs }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "generic-app.fullname" $ }}-{{ .name }}
+  namespace: {{ include "generic-app.namespace" $ }}
+  labels:
+    {{- include "generic-app.labels" $ | nindent 4 }}
+spec:
+  schedule: {{ .schedule | quote }}
+  concurrencyPolicy: {{ default "Forbid" .concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ default 1 .successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ default 2 .failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: {{ include "generic-app.serviceAccountName" $ }}
+          restartPolicy: OnFailure
+          containers:
+            - name: {{ .name }}
+              image: {{ .image | quote }}
+              {{- with .command }}
+              command:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with .args }}
+              args:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              {{- with .volumeMounts }}
+              volumeMounts:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+          {{- with .volumes }}
+          volumes:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}

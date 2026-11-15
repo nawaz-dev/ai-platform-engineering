@@ -1,32 +1,118 @@
 
 replicaCount: 1
 
-image:
-  repository: quay.io/your-org/model-gateway
-  tag: "latest"
-  pullPolicy: IfNotPresent
-
 service:
+  enabled: true
   type: ClusterIP
   port: 5000
+  portName: http
+  targetPort: http
+  protocol: TCP
+  annotations: {}
+  labels: {}
 
-gateway:
-  port: 5000
-  redisAddr: redis:6379
-  rateLimitRPM: 60
-  existingSecret: model-gateway-secrets
-  modelConfigMountPath: /app/configs/models.json
+secret:
+  enabled: false
+  name: model-gateway-secrets
+  key: GATEWAY_API_KEY
+  type: Opaque
+  stringData: {}
+  data: {}
+
+configMap:
+  enabled: true
+  name: ""
+  key: models.json
+  annotations: {}
+  labels: {}
+  env:
+    enabled: true
+    values:
+      PORT: "5000"
+      REDIS_ADDR: redis:6379
+      RATE_LIMIT_RPM: "60"
+      MODELS_CONFIG: /app/configs/models.json
+
+deployment:
+  annotations: {}
+  labels: {}
+  strategy: {}
+  revisionHistoryLimit: 10
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+imagePullSecrets: []
+serviceAccountName: ""
+terminationGracePeriodSeconds: 30
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  labels: {}
+  hosts:
+    - host: model-gateway.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+containers:
+  - name: model-gateway
+    image: quay.io/your-org/model-gateway:latest
+    imagePullPolicy: IfNotPresent
+    ports:
+      - name: http
+        containerPort: 5000
+        protocol: TCP
+    env:
+      - name: GATEWAY_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: '{{ .Values.secret.name }}'
+            key: '{{ .Values.secret.key }}'
+    volumeMounts:
+      - name: models
+        mountPath: /app/configs/models.json
+        subPath: models.json
+        readOnly: true
+    readinessProbe:
+      tcpSocket:
+        port: http
+      initialDelaySeconds: 3
+      periodSeconds: 5
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+volumes:
+  - name: models
+    configMap:
+      name: '{{ .Values.configMap.name | default (printf "%s-models" .Release.Name) }}'
 
 models:
   - model_id: qwen-small
     provider: vllm
     base_url: http://vllm.llm-serving.svc.cluster.local:8000
     provider_model_id: qwen-small
-
-resources:
-  requests:
-    cpu: 100m
-    memory: 128Mi
-  limits:
-    cpu: 500m
-    memory: 512Mi

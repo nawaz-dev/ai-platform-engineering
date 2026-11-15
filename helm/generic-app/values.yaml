@@ -1,0 +1,476 @@
+# FDE GENERIC APPLICATION CHART — EXAMPLE VALUES
+# Deploy each stateless application as a separate Helm release into ai-platform.
+# IMPORTANT: This is a proposed chart interface. Corresponding Helm templates must
+# implement these keys; placing them in values.yaml alone creates no resources.
+# Uncomment examples or replace [] / {} as needed. Do not enable all features at once.
+
+nameOverride: ""
+fullnameOverride: ""
+namespaceOverride: ""  # Prefer Argo CD destination.namespace or --namespace
+
+commonLabels:
+  app.kubernetes.io/part-of: fde-ai-platform
+  platform: fde-ai
+commonAnnotations: {}
+# commonAnnotations:
+#   owner: fde-platform-team
+#   documentation: "https://internal.example/docs"
+
+replicaCount: 1
+revisionHistoryLimit: 3
+
+deploymentAnnotations: {}
+# deploymentAnnotations:
+#   reloader.stakater.com/auto: "true"  # Requires a separately installed reloader
+podAnnotations: {}
+# podAnnotations:
+#   prometheus.io/scrape: "true"
+#   prometheus.io/port: "9090"
+podLabels: {}
+# podLabels:
+#   team: ai-engineering
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+image:
+  repository: registry.example.local/ai/model-gateway
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+# imagePullSecrets:
+#   - name: internal-registry-credentials
+
+containerPorts:
+  - name: http
+    containerPort: 8080
+    protocol: TCP
+# - name: metrics
+#   containerPort: 9090
+#   protocol: TCP
+
+command: []
+# command: ["/app/server"]
+args: []
+# args: ["--listen", ":8080"]
+workingDir: ""
+# workingDir: /app
+
+env:
+  - name: PORT
+    value: "8080"
+  - name: LOG_LEVEL
+    value: info
+# - name: MODEL_BACKEND_URL
+#   valueFrom:
+#     secretKeyRef:
+#       name: model-gateway-config
+#       key: backend-url
+# - name: INSTANCE_NAME
+#   valueFrom:
+#     fieldRef:
+#       fieldPath: metadata.name
+
+envFrom: []
+# envFrom:
+#   - configMapRef:
+#       name: model-gateway-env
+#   - secretRef:
+#       name: model-gateway-secrets
+
+configMap:
+  enabled: false
+  name: ""  # Chart-generated name if blank
+  data: {}
+  # data:
+  #   LOG_FORMAT: json
+  #   REQUEST_TIMEOUT: "30s"
+  #   app.yaml: |
+  #     server:
+  #       port: 8080
+
+# Create no plaintext Secrets from values.yaml; reference externally managed Secrets.
+existingSecrets: []
+# existingSecrets:
+#   - model-gateway-secrets
+#   - database-credentials
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+startupProbe:
+  enabled: true
+  httpGet:
+    path: /health
+    port: http
+  periodSeconds: 5
+  failureThreshold: 30
+  timeoutSeconds: 2
+readinessProbe:
+  enabled: true
+  httpGet:
+    path: /ready
+    port: http
+  periodSeconds: 10
+  failureThreshold: 3
+  timeoutSeconds: 2
+livenessProbe:
+  enabled: true
+  httpGet:
+    path: /health
+    port: http
+  periodSeconds: 20
+  failureThreshold: 3
+  timeoutSeconds: 2
+# For background workers that have no HTTP endpoint, disable the above probes
+# and use a supported exec/tcpSocket probe instead.
+
+service:
+  enabled: true
+  type: ClusterIP
+  annotations: {}
+  # annotations:
+  #   service.beta.kubernetes.io/aws-load-balancer-internal: "true"  # AWS only
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  # - name: metrics
+  #   port: 9090
+  #   targetPort: metrics
+
+serviceAccount:
+  create: true
+  name: ""
+  automountServiceAccountToken: false
+  annotations: {}
+  # annotations:
+  #   example.com/role: model-gateway
+  automountServiceAccountToken: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  fsGroupChangePolicy: OnRootMismatch
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+  runAsNonRoot: true
+
+terminationGracePeriodSeconds: 30
+lifecycle: {}
+# lifecycle:
+#   preStop:
+#     exec:
+#       command: ["/bin/sh", "-c", "sleep 5"]
+
+dnsPolicy: ClusterFirst
+hostAliases: []
+# hostAliases:
+#   - ip: 192.168.1.22
+#     hostnames: ["model-host.lab.local"]
+
+nodeSelector: {}
+# nodeSelector:
+#   kubernetes.io/os: linux
+tolerations: []
+# tolerations:
+#   - key: dedicated
+#     operator: Equal
+#     value: ai
+#     effect: NoSchedule
+affinity: {}
+# affinity:
+#   podAntiAffinity:
+#     preferredDuringSchedulingIgnoredDuringExecution:
+#       - weight: 100
+#         podAffinityTerm:
+#           labelSelector:
+#             matchLabels:
+#               app.kubernetes.io/name: model-gateway
+#           topologyKey: kubernetes.io/hostname
+topologySpreadConstraints: []
+# topologySpreadConstraints:
+#   - maxSkew: 1
+#     topologyKey: kubernetes.io/hostname
+#     whenUnsatisfiable: ScheduleAnyway
+#     labelSelector:
+#       matchLabels:
+#         app.kubernetes.io/name: model-gateway
+priorityClassName: ""
+# priorityClassName: system-cluster-critical  # Do not use for routine apps
+runtimeClassName: ""
+# runtimeClassName: nvidia
+schedulerName: ""
+# schedulerName: default-scheduler
+
+# VOLUMES: Use standard Kubernetes Pod volumes, not PVC objects here.
+volumes: []
+# volumes:
+#   # 1. Existing PVC shared by pods in ai-platform (RWX where needed)
+#   - name: common-data
+#     persistentVolumeClaim:
+#       claimName: ai-platform-shared-pvc
+#   # 2. App-specific existing PVC
+#   - name: rag-uploads
+#     persistentVolumeClaim:
+#       claimName: rag-uploads-pvc
+#   # 3. Temporary writable scratch (useful with readOnlyRootFilesystem)
+#   - name: tmp
+#     emptyDir:
+#       sizeLimit: 1Gi
+#   # 4. ConfigMap
+#   - name: app-config
+#     configMap:
+#       name: rag-config
+#   # 5. Secret
+#   - name: api-certs
+#     secret:
+#       secretName: rag-tls
+#   # 6. Projected service account / config (only if needed)
+#   - name: projected-settings
+#     projected:
+#       sources:
+#         - configMap:
+#             name: rag-config
+#   # 7. Direct NFS mount (prefer a PV/PVC in most environments)
+#   - name: nfs-share
+#     nfs:
+#       server: 192.168.1.50
+#       path: /exports/ai-platform
+#       readOnly: false
+
+# Each container requires its own volumeMounts. This list is for the main container.
+volumeMounts: []
+# volumeMounts:
+#   - name: common-data
+#     mountPath: /app/shared
+#     subPath: documents
+#   - name: rag-uploads
+#     mountPath: /app/uploads
+#   - name: tmp
+#     mountPath: /tmp
+#   - name: app-config
+#     mountPath: /app/config/app.yaml
+#     subPath: app.yaml
+#     readOnly: true
+#   - name: api-certs
+#     mountPath: /app/certs
+#     readOnly: true
+
+# Optional PVC objects created by THIS Helm release (requires pvc.yaml template).
+# For shared PVCs used by many releases, create/manage once in an infra chart.
+persistentVolumeClaims: []
+# persistentVolumeClaims:
+#   - name: rag-uploads-pvc
+#     storageClassName: local-path  # Check 'kubectl get storageclass'
+#     accessModes: [ReadWriteOnce]
+#     volumeMode: Filesystem
+#     size: 5Gi
+#     annotations: {}
+#     labels: {}
+#     # existingVolumeName: fixed-pv-name  # Only if binding static PV
+#   - name: ai-platform-shared-pvc
+#     storageClassName: nfs-client  # Only if this class actually exists
+#     accessModes: [ReadWriteMany]
+#     volumeMode: Filesystem
+#     size: 20Gi
+#     annotations: {}
+#     labels: {}
+
+# Each init container has its own image/securityContext/resources/volumeMounts.
+initContainers: []
+# initContainers:
+#   - name: prepare-directories
+#     image: busybox:1.36
+#     imagePullPolicy: IfNotPresent
+#     command: ["sh", "-c"]
+#     args:
+#       - "mkdir -p /shared/documents /shared/skills"
+#     securityContext:
+#       runAsNonRoot: true
+#       runAsUser: 10001
+#       allowPrivilegeEscalation: false
+#       capabilities:
+#         drop: [ALL]
+#     resources:
+#       requests:
+#         cpu: 10m
+#         memory: 16Mi
+#       limits:
+#         cpu: 100m
+#         memory: 64Mi
+#     volumeMounts:
+#       - name: common-data
+#         mountPath: /shared
+#   # Init-only PVC: put volume in 'volumes', mount ONLY here, not in volumeMounts.
+#   - name: import-global-skills
+#     image: busybox:1.36
+#     command: ["sh", "-c"]
+#     args: ["cp -R /source/. /dest/"]
+#     volumeMounts:
+#       - name: global-skills
+#         mountPath: /source
+#         readOnly: true
+#       - name: scratch
+#         mountPath: /dest
+
+extraContainers: []
+# extraContainers:
+#   - name: otel-sidecar
+#     image: otel/opentelemetry-collector:0.111.0
+#     args: ["--config=/etc/otel/config.yaml"]
+#     volumeMounts:
+#       - name: otel-config
+#         mountPath: /etc/otel
+#         readOnly: true
+#     resources:
+#       requests:
+#         cpu: 50m
+#         memory: 64Mi
+
+# Autoscaling needs metrics-server and appropriate CPU/memory requests.
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  customMetrics: []
+  # customMetrics:
+  #   - type: Pods
+  #     pods:
+  #       metric:
+  #         name: http_requests_per_second
+  #       target:
+  #         type: AverageValue
+  #         averageValue: "100"
+  # Requires an installed custom metrics adapter for that metric.
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1  # Use one or the other, not both
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  # annotations:
+  #   nginx.ingress.kubernetes.io/proxy-body-size: 100m
+  hosts:
+    - host: rag.lab.example
+      paths:
+        - path: /
+          pathType: Prefix
+          servicePort: http
+  tls: []
+  # tls:
+  #   - secretName: rag-tls
+  #     hosts: [rag.lab.example]
+
+# Only supported with an OpenShift-specific Route template and CRD.
+route:
+  enabled: false
+  host: rag.apps.example.com
+  annotations: {}
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# Optional NetworkPolicy; use an explicitly chosen baseline (default-deny vs allowlist).
+# NetworkPolicies work only if your cluster CNI implements them.
+networkPolicy:
+  enabled: false
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ai-platform
+      ports:
+        - protocol: TCP
+          port: 8080
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ai-platform
+      ports:
+        - protocol: TCP
+          port: 6379
+  # Add DNS egress (TCP/UDP 53), monitoring and cross-cluster inference as needed.
+
+metrics:
+  enabled: false
+  port: 9090
+  path: /metrics
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/path: /metrics
+    prometheus.io/port: "9090"
+
+# Requires Prometheus Operator ServiceMonitor CRD and appropriate Prometheus selector.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  scrapeTimeout: 10s
+  additionalLabels:
+    release: kube-prometheus-stack
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+
+logging:
+  format: json
+  level: info
+tracing:
+  enabled: false
+  serviceName: model-gateway
+  otlpEndpoint: "http://otel-collector.monitoring.svc.cluster.local:4317"
+  protocol: grpc
+  samplingRatio: 0.1
+
+# Separate job.yaml / cronjob.yaml templates needed.
+jobs: []
+# jobs:
+#   - name: migrate
+#     image: registry.example.local/ai/rag-api:1.0.0
+#     command: ["/app/migrate"]
+#     backoffLimit: 2
+#     restartPolicy: Never
+cronJobs: []
+# cronJobs:
+#   - name: cleanup
+#     schedule: "0 2 * * *"
+#     concurrencyPolicy: Forbid
+#     successfulJobsHistoryLimit: 1
+#     failedJobsHistoryLimit: 2
+#     image: busybox:1.36
+#     command: ["sh", "-c", "find /data/tmp -type f -mtime +7 -delete"]
+#     volumeMounts:
+#       - name: common-data
+#         mountPath: /data
+
+# Only for GPU workloads; GPU resource requests generally equal limits.
+gpu:
+  enabled: false
+  resourceName: nvidia.com/gpu
+  count: 1
+# Prefer setting resource limits in GPU inference chart, not model-gateway.

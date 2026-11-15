@@ -1,0 +1,15 @@
+# Example: dynamic PVC for one application; replace storageClassName with a class
+# confirmed via kubectl --context k3d-dev-cluster get storageclass.
+# local-path normally supports RWO, NOT RWX shared cross-node behavior.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rag-uploads-pvc
+  namespace: ai-platform
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 5Gi

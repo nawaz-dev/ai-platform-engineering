@@ -1,0 +1,37 @@
+
+{{- range $configMap := .Values.configMaps }}
+{{- if $configMap.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $configMap.name | quote }}
+  namespace: {{ $.Release.Namespace }}
+
+  labels:
+    {{- include "generic-app.labels" $ | nindent 4 }}
+    {{- with $configMap.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+  {{- with $configMap.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+{{- with $configMap.data }}
+data:
+  {{- range $key, $value := . }}
+  {{ $key | quote }}: {{ $value | toString | quote }}
+  {{- end }}
+{{- end }}
+
+{{- with $configMap.binaryData }}
+binaryData:
+  {{- range $key, $value := . }}
+  {{ $key | quote }}: {{ $value | toString | quote }}
+  {{- end }}
+{{- end }}
+
+{{- end }}
+{{- end }}

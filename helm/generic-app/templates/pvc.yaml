@@ -1,0 +1,30 @@
+{{- range .Values.persistentVolumeClaims }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ required "persistentVolumeClaims[].name required" .name }}
+  namespace: {{ include "generic-app.namespace" $ }}
+  labels:
+    {{- include "generic-app.labels" $ | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .accessModes | nindent 4 }}
+  {{- if hasKey . "storageClassName" }}
+  storageClassName: {{ .storageClassName | quote }}
+  {{- end }}
+  volumeMode: {{ default "Filesystem" .volumeMode }}
+  {{- with .existingVolumeName }}
+  volumeName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .size | quote }}
+{{- end }}
