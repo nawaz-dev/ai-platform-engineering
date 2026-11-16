@@ -8,9 +8,15 @@ nameOverride: ""
 fullnameOverride: ""
 namespaceOverride: ""  # Prefer Argo CD destination.namespace or --namespace
 
-commonLabels:
+selectorLabels:
   app.kubernetes.io/part-of: fde-ai-platform
   platform: fde-ai
+
+
+# selectorLabels:
+#   app.kubernetes.io/name: rag-api
+#   app.kubernetes.io/instance: rag-api
+
 commonAnnotations: {}
 # commonAnnotations:
 #   owner: fde-platform-team

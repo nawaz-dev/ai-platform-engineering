@@ -13,7 +13,7 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   selector:
-    {{- include "generic-app.selectorLabels" . | nindent 4 }}
+    {{- toYaml (.Values.selectorLabels | default (dict "app.kubernetes.io/instance" .Release.Name)) | nindent 4 }}
   ports:
     {{- toYaml .Values.service.ports | nindent 4 }}
 {{- end }}
